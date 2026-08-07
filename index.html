@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Plataforma de Análisis de Mortalidad (2026)</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="bg-fx"></div>
+    <div class="dashboard-wrapper">
+        <header class="dashboard-header">
+            <div class="header-title-container">
+                <div class="status-indicator"></div>
+                <h1>Terminal de Datos de Mortalidad <span class="year-badge">2026</span></h1>
+            </div>
+            <p>Análisis interactivo e inteligencia demográfica regional.</p>
+        </header>
+
+        <main class="dashboard-grid">
+            <!-- Global Benchmark Section -->
+            <section class="panel full-width highlight-panel">
+                <div class="panel-header">
+                    <h2>Visión Global: Benchmark Comparativo</h2>
+                    <span class="badge">Análisis Interagencial</span>
+                </div>
+                <div class="chart-container benchmark-container">
+                    <canvas id="benchmarkChart"></canvas>
+                </div>
+            </section>
+
+            <!-- Interactive Country Dashboard -->
+            <section class="panel full-width interactive-section">
+                <div class="tabs-container">
+                    <button class="tab-btn active" data-country="mexico">México 🇲🇽</button>
+                    <button class="tab-btn" data-country="usa">Estados Unidos 🇺🇸</button>
+                    <button class="tab-btn" data-country="venezuela">Venezuela 🇻🇪</button>
+                    <button class="tab-btn" data-country="peru">Perú 🇵🇪</button>
+                </div>
+
+                <div class="dashboard-content fade-in" id="dashboardContent">
+                    <!-- KPI Cards -->
+                    <div class="kpi-grid">
+                        <div class="kpi-card">
+                            <span class="kpi-label">Principal Causa</span>
+                            <strong class="kpi-value text-glow" id="kpi-main-cause">-</strong>
+                        </div>
+                        <div class="kpi-card">
+                            <span class="kpi-label">Volumen / Impacto</span>
+                            <strong class="kpi-value text-accent counter" id="kpi-volume">0</strong>
+                        </div>
+                        <div class="kpi-card alert-card">
+                            <span class="kpi-label">Foco de Riesgo (Contexto)</span>
+                            <strong class="kpi-value text-alert" id="kpi-risk">-</strong>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Chart -->
+                    <div class="chart-container dynamic-chart-container">
+                        <canvas id="dynamicChart"></canvas>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
