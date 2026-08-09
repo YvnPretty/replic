@@ -1,178 +1,123 @@
-/* Procedural spatial soundscape: no external audio files required. */
+/* Spatial storm soundscape. One audio engine only; avoids stacking the old main.js audio. */
 (() => {
   const button = document.getElementById('sound-toggle');
   if (!button || !window.THREE) return;
 
-  let ctx = null;
-  let master = null;
-  let started = false;
-  let state = { scene: null, camera: null };
-  let lastThunder = 0;
-
+  let ctx = null, master = null, started = false, muted = false;
+  let state = { scene: null, camera: null }, lastThunder = 0;
   const clamp01 = v => Math.max(0, Math.min(1, v));
   const smooth = v => v * v * (3 - 2 * v);
-  const distanceGain = (distance, near, far, max = 1) => max * (1 - smooth(clamp01((distance - near) / (far - near))));
+  const distanceGain = (d, near, far, max = 1) => max * (1 - smooth(clamp01((d - near) / (far - near))));
 
-  function noiseSource(bufferSize = 2) {
-    const buffer = ctx.createBuffer(1, ctx.sampleRate * bufferSize, ctx.sampleRate);
-    const data = buffer.getChannelData(0);
-    for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-    const source = ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-    return source;
+  function noiseSource(seconds = 3) {
+    const b = ctx.createBuffer(1, ctx.sampleRate * seconds, ctx.sampleRate), d = b.getChannelData(0);
+    for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    const s = ctx.createBufferSource(); s.buffer = b; s.loop = true; return s;
   }
-
-  function makeLayer(type, frequency, q, gain) {
-    const source = noiseSource(2);
-    const filter = ctx.createBiquadFilter();
-    filter.type = type;
-    filter.frequency.value = frequency;
-    filter.Q.value = q;
-    const g = ctx.createGain();
-    g.gain.value = 0;
-    source.connect(filter).connect(g).connect(master);
-    source.start();
-    return { source, filter, gain: g, base: gain };
+  function layer(filterType, freq, q, base) {
+    const source = noiseSource(), filter = ctx.createBiquadFilter(), gain = ctx.createGain();
+    filter.type = filterType; filter.frequency.value = freq; filter.Q.value = q; gain.gain.value = 0;
+    source.connect(filter).connect(gain).connect(master); source.start();
+    return { source, filter, gain, base };
   }
 
   function start() {
-    if (started) {
-      ctx.resume();
-      return;
-    }
+    if (started) { muted = false; master.gain.setTargetAtTime(.72, ctx.currentTime, .08); ctx.resume(); return; }
     ctx = new (window.AudioContext || window.webkitAudioContext)();
-    master = ctx.createGain();
-    master.gain.value = 0.62;
-    master.connect(ctx.destination);
+    master = ctx.createGain(); master.gain.value = .72; master.connect(ctx.destination);
 
-    // Rain: bright filtered noise with a slow amplitude modulation.
-    const rain = makeLayer('highpass', 1800, .35, .055);
-    // Wind: low band noise, deeper near the tornado.
-    const wind = makeLayer('bandpass', 310, .7, .09);
-    // Ocean: low-passed noise plus slow wave modulation.
-    const sea = makeLayer('lowpass', 480, .2, .075);
-    // City: distant filtered broadband traffic bed.
-    const traffic = makeLayer('lowpass', 850, .55, .035);
+    const rain = layer('highpass', 1900, .35, .035);
+    const wind = layer('bandpass', 360, .62, .085);
+    const sea = layer('lowpass', 430, .22, .085);
+    const traffic = layer('bandpass', 720, .38, .018);
 
-    const siren = ctx.createOscillator();
-    const sirenGain = ctx.createGain();
-    siren.type = 'sine'; siren.frequency.value = 700; sirenGain.gain.value = 0;
-    siren.connect(sirenGain).connect(master); siren.start();
+    // Distant siren: two tones with a slow sweep.
+    const siren = ctx.createOscillator(), sirenGain = ctx.createGain();
+    siren.type = 'sine'; sirenGain.gain.value = 0; siren.connect(sirenGain).connect(master); siren.start();
+    // Helicopter rotor: low-frequency pulse, kept subtle so it does not dominate.
+    const rotor = ctx.createOscillator(), rotorGain = ctx.createGain();
+    rotor.type = 'triangle'; rotor.frequency.value = 58; rotorGain.gain.value = 0; rotor.connect(rotorGain).connect(master); rotor.start();
 
-    const rotor = ctx.createOscillator();
-    const rotorGain = ctx.createGain();
-    rotor.type = 'sawtooth'; rotor.frequency.value = 52; rotorGain.gain.value = 0;
-    rotor.connect(rotorGain).connect(master); rotor.start();
+    // Natural modulation for waves and rain.
+    const seaLfo = ctx.createOscillator(), seaLfoGain = ctx.createGain();
+    seaLfo.frequency.value = .13; seaLfoGain.gain.value = .022; seaLfo.connect(seaLfoGain).connect(sea.gain); seaLfo.start();
+    const rainLfo = ctx.createOscillator(), rainLfoGain = ctx.createGain();
+    rainLfo.frequency.value = .055; rainLfoGain.gain.value = .012; rainLfo.connect(rainLfoGain).connect(rain.gain); rainLfo.start();
 
-    const seaLfo = ctx.createOscillator();
-    const seaLfoGain = ctx.createGain();
-    seaLfo.frequency.value = .17; seaLfoGain.gain.value = .025;
-    seaLfo.connect(seaLfoGain).connect(sea.gain); seaLfo.start();
-
-    const rainLfo = ctx.createOscillator();
-    const rainLfoGain = ctx.createGain();
-    rainLfo.frequency.value = .075; rainLfoGain.gain.value = .018;
-    rainLfo.connect(rainLfoGain).connect(rain.gain); rainLfo.start();
-
-    const data = { rain, wind, sea, traffic, siren, sirenGain, rotor, rotorGain };
-    window.__replicSound = data;
-    started = true;
-    ctx.resume();
-    button.textContent = '🔊';
-    button.setAttribute('aria-label', 'Sonido activado');
+    window.__replicSound = { rain, wind, sea, traffic, siren, sirenGain, rotor, rotorGain };
+    started = true; muted = false; ctx.resume();
+    button.textContent = '🔊'; button.setAttribute('aria-label', 'Desactivar sonido');
   }
 
-  button.addEventListener('click', start, { passive: true });
+  // Capture phase intentionally takes control before main.js's old sound handler.
+  // This prevents two independent WebAudio engines from playing simultaneously.
+  button.addEventListener('click', e => {
+    e.stopImmediatePropagation();
+    if (!started || muted) start();
+    else { muted = true; master.gain.setTargetAtTime(0, ctx.currentTime, .1); button.textContent = '🔇'; button.setAttribute('aria-label', 'Activar sonido'); }
+  }, true);
 
-  // Capture the active Three.js camera/scene without changing the simulation loop.
   const originalRender = THREE.WebGLRenderer.prototype.render;
   THREE.WebGLRenderer.prototype.render = function(scene, camera) {
-    state.scene = scene;
-    state.camera = camera;
+    state.scene = scene; state.camera = camera;
     return originalRender.call(this, scene, camera);
   };
 
-  function findPosition(name, fallback) {
-    if (!state.scene) return fallback;
-    let found = null;
+  function findTornado() {
+    if (!state.scene) return new THREE.Vector3(-36, 0, 8);
+    let result = null;
     state.scene.traverse(obj => {
-      if (found || !obj.isGroup) return;
-      if (obj.name === name) found = obj.getWorldPosition(new THREE.Vector3());
+      if (result || !obj.isGroup) return;
+      if (Math.abs(obj.position.x + 36) < .15 && Math.abs(obj.position.z - 8) < .15) result = obj.getWorldPosition(new THREE.Vector3());
     });
-    return found || fallback;
+    return result || new THREE.Vector3(-36, 0, 8);
   }
 
-  function thunder() {
-    if (!started || !ctx) return;
-    const now = ctx.currentTime;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    const filter = ctx.createBiquadFilter();
+  function thunder(distance) {
+    if (!started || muted) return;
+    const now = ctx.currentTime, osc = ctx.createOscillator(), filter = ctx.createBiquadFilter(), gain = ctx.createGain();
     osc.type = 'sawtooth';
-    osc.frequency.setValueAtTime(95 + Math.random() * 35, now);
-    osc.frequency.exponentialRampToValueAtTime(32, now + 1.8);
-    filter.type = 'lowpass'; filter.frequency.value = 420;
+    osc.frequency.setValueAtTime(78 + Math.random() * 20, now);
+    osc.frequency.exponentialRampToValueAtTime(25, now + 1.8);
+    filter.type = 'lowpass'; filter.frequency.value = 430;
+    const volume = Math.max(.015, .18 * Math.exp(-distance / 65));
     gain.gain.setValueAtTime(.0001, now);
-    gain.gain.exponentialRampToValueAtTime(.16, now + .06);
+    gain.gain.exponentialRampToValueAtTime(volume, now + .07);
     gain.gain.exponentialRampToValueAtTime(.0001, now + 2.2);
-    osc.connect(filter).connect(gain).connect(master);
-    osc.start(now); osc.stop(now + 2.25);
+    osc.connect(filter).connect(gain).connect(master); osc.start(now); osc.stop(now + 2.25);
   }
 
   function tick(t) {
     requestAnimationFrame(tick);
-    if (!started || !state.camera || !window.__replicSound) return;
-    const s = window.__replicSound;
-    const cam = state.camera.position;
-    const tornado = findPosition('tornado-audio-source', new THREE.Vector3(-36, 0, 8));
-    const seaPos = new THREE.Vector3(-116, 0, 0);
-    const city = new THREE.Vector3(0, 0, 0);
-    const airport = new THREE.Vector3(37, 0, 28);
-
-    const tornadoD = cam.distanceTo(tornado);
-    const seaD = cam.distanceTo(seaPos);
-    const cityD = cam.distanceTo(city);
-    const airportD = cam.distanceTo(airport);
-
-    const tornadoVol = distanceGain(tornadoD, 5, 90, 1);
-    const seaVol = distanceGain(seaD, 12, 125, 1);
-    const cityVol = distanceGain(cityD, 8, 120, 1);
-    const airportVol = distanceGain(airportD, 10, 65, 1);
-
+    if (!started || muted || !state.camera || !window.__replicSound) return;
+    const s = window.__replicSound, cam = state.camera.position;
+    const tornadoD = cam.distanceTo(findTornado());
+    const seaD = cam.distanceTo(new THREE.Vector3(-116, 0, 0));
+    const cityD = Math.min(Math.abs(cam.x), Math.abs(cam.z + 16));
+    const airportD = cam.distanceTo(new THREE.Vector3(37, 0, 28));
+    const storm = distanceGain(tornadoD, 4, 105);
+    const sea = distanceGain(seaD, 8, 140);
+    const city = distanceGain(cityD, 6, 120);
+    const airport = distanceGain(airportD, 8, 65);
     const now = ctx.currentTime;
-    s.rain.gain.setTargetAtTime(s.rain.base * (.65 + tornadoVol * .9), now, .12);
-    s.wind.gain.setTargetAtTime(s.wind.base * (.25 + tornadoVol * 1.8), now, .1);
-    s.sea.gain.setTargetAtTime(s.sea.base * seaVol, now, .18);
-    s.traffic.gain.setTargetAtTime(s.traffic.base * cityVol, now, .35);
 
-    // Helicopter becomes audible around the airport; it fades naturally with distance.
-    s.rotorGain.gain.setTargetAtTime(.018 * airportVol, now, .18);
-    s.rotor.frequency.setTargetAtTime(45 + airportVol * 25, now, .18);
+    // Crossfaded by distance, not fixed volume.
+    s.wind.gain.setTargetAtTime(s.wind.base * (.18 + storm * 1.65), now, .12);
+    s.wind.filter.frequency.setTargetAtTime(280 + storm * 900, now, .15);
+    s.rain.gain.setTargetAtTime(s.rain.base * (.12 + storm * 1.25), now, .18);
+    s.sea.gain.setTargetAtTime(s.sea.base * sea, now, .22);
+    s.traffic.gain.setTargetAtTime(s.traffic.base * city, now, .35);
+    s.rotorGain.gain.setTargetAtTime(.014 * airport, now, .22);
+    s.rotor.frequency.setTargetAtTime(48 + airport * 18, now, .2);
 
-    // Occasional distant siren, louder near the urban/airport area.
-    const sirenPulse = (t % 19) / 19;
-    const sirenActive = sirenPulse > .72 ? (sirenPulse - .72) / .28 : 0;
-    s.sirenGain.gain.setTargetAtTime(.018 * cityVol * sirenActive, now, .08);
-    s.siren.frequency.setTargetAtTime(620 + Math.sin(t * 5.2) * 360, now, .08);
+    const pulse = (t % 22) / 22;
+    const active = pulse > .68 ? Math.min(1, (pulse - .68) / .16) * Math.min(1, (1 - pulse) / .16) : 0;
+    s.sirenGain.gain.setTargetAtTime(.014 * city * active, now, .08);
+    s.siren.frequency.setTargetAtTime(620 + Math.sin(t * 4.8) * 330, now, .08);
 
-    // Storm thunder gets more noticeable as you approach the tornado.
-    if (t - lastThunder > 9 + Math.random() * 8) {
-      lastThunder = t;
-      const thunderLevel = tornadoVol * .16;
-      if (thunderLevel > .025) thunder();
-    }
+    if (storm > .22 && t - lastThunder > 8 + Math.random() * 9) { lastThunder = t; thunder(tornadoD); }
   }
 
-  // The tornado itself is tagged after the first scene render if its known position exists.
-  const tagTornado = () => {
-    if (!state.scene) return;
-    state.scene.traverse(obj => {
-      if (!obj.isGroup || obj.name === 'tornado-audio-source') return;
-      const p = obj.position;
-      if (Math.abs(p.x + 36) < .1 && Math.abs(p.z - 8) < .1) obj.name = 'tornado-audio-source';
-    });
-  };
-  setInterval(tagTornado, 1000);
+  window.addEventListener('replic:lightning', e => thunder(e.detail?.distance ?? 80));
   requestAnimationFrame(tick);
 })();
