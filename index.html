@@ -11,40 +11,90 @@
     html, body { margin: 0; width: 100%; height: 100%; min-height: 100dvh; overflow: hidden; background: #9eabb0; }
     body, canvas { touch-action: none; }
     canvas { display: block; width: 100%; height: 100%; }
-    #info { position: fixed; z-index: 1; top: max(12px, env(safe-area-inset-top)); left: 50%; width: min(92vw, 760px); transform: translateX(-50%); color: #fff; font: 600 clamp(11px, 2vw, 14px)/1.4 system-ui,sans-serif; text-align: center; letter-spacing: .04em; text-shadow: 0 2px 5px #202527; pointer-events: none; }
-    #info small { font-weight: 400; opacity: .88; letter-spacing: normal; }
-    #disaster-controls { position: fixed; z-index: 2; right: 18px; bottom: calc(18px + var(--safe-bottom)); width: min(220px,calc(100vw - 36px)); padding: 13px 15px; border: 1px solid rgba(230,242,245,.38); border-radius: 10px; background: rgba(14,23,27,.72); color: #f4f7f5; font: 13px/1.4 system-ui,sans-serif; box-shadow: 0 8px 30px rgba(0,0,0,.25); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
-    #disaster-controls label { display: flex; justify-content: space-between; font-weight: 650; }
-    #disaster-controls input { width: 100%; margin: 8px 0 7px; accent-color: #e0ad51; min-height: 24px; }
-    #event-status { color: #cdd9d7; font-size: 12px; }
-    #dialogue { position: fixed; z-index: 3; left: 22px; bottom: calc(22px + var(--safe-bottom)); width: min(330px,calc(100vw - 44px)); padding: 12px 16px; border-left: 3px solid #f2c45f; border-radius: 5px; color: #fff; background: rgba(12,18,20,.78); font: 600 15px/1.35 system-ui,sans-serif; opacity: 0; transform: translateY(8px); transition: opacity .25s,transform .25s; pointer-events: none; }
-    #dialogue.visible { opacity: 1; transform: translateY(0); }
-    #sound-toggle,#tsunami-trigger { width: 100%; margin-top: 8px; touch-action: manipulation; }
-    #sound-toggle { margin-top: 10px; }
-    @media (max-width:576px) {
-      #info { top: max(8px,env(safe-area-inset-top)); width: 94vw; }
-      #info small b { display: none; }
-      #disaster-controls { left: 12px; right: 12px; bottom: calc(12px + var(--safe-bottom)); width: auto; padding: 11px 12px; font-size: 12px; }
-      #disaster-controls input { margin: 6px 0; }
-      #dialogue { left: 12px; bottom: calc(158px + var(--safe-bottom)); width: calc(100vw - 24px); max-width: none; padding: 10px 13px; font-size: 13px; }
+
+    #info {
+      position: fixed; z-index: 1; top: max(12px,env(safe-area-inset-top)); left: 50%; width: min(92vw,760px);
+      transform: translateX(-50%); color: #fff; font: 600 clamp(11px,2vw,14px)/1.4 system-ui,sans-serif;
+      text-align: center; letter-spacing: .04em; text-shadow: 0 2px 5px #202527; pointer-events: none;
     }
+    #info small { font-weight: 400; opacity: .88; letter-spacing: normal; }
+
+    /* Control principal: ahora vive junto al centro de la escena, no en un panel inferior. */
+    #tornado-intensity {
+      position: fixed; z-index: 4; left: 50%; top: 54%; transform: translate(76px,-50%);
+      width: 118px; padding: 9px 10px; border: 1px solid rgba(255,255,255,.22); border-radius: 14px;
+      background: rgba(12,18,20,.58); color: #fff; box-shadow: 0 8px 28px rgba(0,0,0,.28);
+      backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); font: 11px/1.25 system-ui,sans-serif;
+    }
+    #tornado-intensity::before {
+      content: ''; position: absolute; left: -9px; top: 50%; width: 9px; height: 1px;
+      background: rgba(255,255,255,.5);
+    }
+    #tornado-intensity label { display:flex; justify-content:space-between; align-items:center; gap:6px; font-weight:700; }
+    #tornado-intensity output { color:#f2c45f; font-size:14px; }
+    #magnitude { width:100%; margin:6px 0 0; accent-color:#f2c45f; min-height:24px; }
+
+    /* Panel antiguo conservado solo para que main.js mantenga sus referencias; permanece invisible. */
+    #disaster-controls { display:none !important; }
+
+    #mobile-hint {
+      position: fixed; z-index: 2; left:50%; bottom:calc(14px + var(--safe-bottom)); transform:translateX(-50%);
+      padding:7px 11px; border:1px solid rgba(255,255,255,.16); border-radius:999px;
+      background:rgba(8,12,14,.42); color:rgba(255,255,255,.78); font:10px/1 system-ui,sans-serif;
+      backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px); pointer-events:none; white-space:nowrap;
+    }
+
+    #sound-toggle {
+      position:fixed; z-index:5; right:12px; bottom:calc(12px + var(--safe-bottom)); width:40px; height:40px;
+      padding:0; border:1px solid rgba(255,255,255,.2); border-radius:50%; color:#fff;
+      background:rgba(12,18,20,.62); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
+      font-size:16px; line-height:1; touch-action:manipulation;
+    }
+
+    #dialogue {
+      position: fixed; z-index:3; left:50%; bottom:calc(56px + var(--safe-bottom)); transform:translate(-50%,8px);
+      width:min(330px,calc(100vw - 32px)); padding:10px 13px; border-left:3px solid #f2c45f; border-radius:8px;
+      color:#fff; background:rgba(12,18,20,.72); font:600 13px/1.35 system-ui,sans-serif;
+      opacity:0; transition:opacity .25s,transform .25s; pointer-events:none; backdrop-filter:blur(8px); -webkit-backdrop-filter:blur(8px);
+    }
+    #dialogue.visible { opacity:1; transform:translate(-50%,0); }
+
+    @media (max-width:576px) {
+      #info { top:max(8px,env(safe-area-inset-top)); width:94vw; }
+      #info small b { display:none; }
+      #tornado-intensity { top:52%; transform:translate(62px,-50%); width:108px; padding:8px 9px; }
+      #mobile-hint { bottom:calc(11px + var(--safe-bottom)); }
+    }
+
     @media (max-height:520px) and (orientation:landscape) {
-      #disaster-controls { width: 210px; right: 10px; bottom: calc(10px + var(--safe-bottom)); }
-      #dialogue { left: 10px; bottom: calc(10px + var(--safe-bottom)); width: min(280px,42vw); }
-      #info { display: none; }
+      #info { display:none; }
+      #tornado-intensity { top:50%; transform:translate(70px,-50%); width:112px; }
+      #mobile-hint { display:none; }
     }
   </style>
 </head>
 <body>
-  <div id="info">TORNADO Y CRECIDA URBANA<br><small>Arrastra para orbitar · Pellizca para acercar · <b>Clic derecho/Dos dedos para moverte al aeropuerto</b></small></div>
-  <div id="dialogue"></div>
-  <div id="disaster-controls" class="shadow-lg">
-    <label for="magnitude"><span>Intensidad del desastre</span><output id="magnitude-value">6</output></label>
-    <input id="magnitude" type="range" min="1" max="10" step="0.1" value="6" aria-label="Intensidad del desastre">
-    <div id="event-status">Toca el mapa para crear un terremoto</div>
-    <button id="tsunami-trigger" type="button" class="btn btn-warning btn-sm">🌊 Generar tsunami</button>
-    <button id="sound-toggle" type="button" class="btn btn-secondary btn-sm">🔇 Activar sonido</button>
+  <div id="info">
+    TORNADO Y CRECIDA URBANA<br>
+    <small>Arrastra para orbitar · Pellizca para acercar · <b>Clic derecho/Dos dedos para moverte al aeropuerto</b></small>
   </div>
+
+  <div id="tornado-intensity" aria-label="Control de intensidad del tornado">
+    <label for="magnitude"><span>TORNADO</span><output id="magnitude-value">6</output></label>
+    <input id="magnitude" type="range" min="1" max="10" step="0.1" value="6" aria-label="Intensidad del tornado">
+  </div>
+
+  <div id="mobile-hint">Arrastra · Pellizca · Explora</div>
+  <div id="dialogue"></div>
+
+  <!-- Referencias internas usadas por main.js; el menú queda oculto. -->
+  <div id="disaster-controls" aria-hidden="true">
+    <div id="event-status">Toca el mapa para crear un terremoto</div>
+    <button id="tsunami-trigger" type="button">Generar tsunami</button>
+  </div>
+
+  <button id="sound-toggle" type="button" aria-label="Activar sonido" title="Activar sonido">🔇</button>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/js/bootstrap.bundle.min.js"></script>
