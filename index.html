@@ -30,10 +30,25 @@
     #disaster-controls button:hover { background: rgba(91,135,143,.8); }
     @media (max-width:576px) { #info { top:max(8px,env(safe-area-inset-top)); width:94vw; } #info small b { display:none; } #tornado-control-panel { right:60px; bottom:calc(12px + var(--safe-bottom)); width:175px; } #tornado-control-toggle { right:10px; bottom:calc(12px + var(--safe-bottom)); } #sound-toggle { left:10px; bottom:calc(12px + var(--safe-bottom)); } #mobile-hint { bottom:calc(12px + var(--safe-bottom)); } }
     @media (max-height:520px) and (orientation:landscape) { #info { display:none; } #mobile-hint { display:none; } }
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .12s !important; }
+      #mobile-hint, #info { opacity: .85; }
+    }
+    .info-pulse { animation: infoPulse 4.2s ease-in-out infinite; }
+    @keyframes infoPulse {
+      0%, 100% { opacity: 1; transform: translate(-50%, 0) scale(1); }
+      50% { opacity: .82; transform: translate(-50%, -1px) scale(1.012); }
+    }
+    #tornado-control-toggle { transition: transform .35s cubic-bezier(.2,.8,.2,1), background .25s ease; }
+    #tornado-control-toggle:hover { transform: rotate(35deg) scale(1.06); background: rgba(15,20,24,.85); }
+    .button-pop { transition: background .2s ease, transform .15s ease; }
+    .button-pop:active { transform: scale(.94); }
+    .fade-in-up { animation: fadeInUp .55s cubic-bezier(.2,.8,.2,1) both; }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
   </style>
 </head>
 <body>
-  <div id="info">TORNADO Y CRECIDA URBANA<br><small>Arrastra para orbitar · Pellizca para acercar · <b>Clic derecho/Dos dedos para moverte al aeropuerto</b></small></div>
+  <div id="info" class="info-pulse fade-in-up">TORNADO Y CRECIDA URBANA<br><small>Arrastra para orbitar · Pellizca para acercar · <b>Clic derecho/Dos dedos para moverte al aeropuerto</b></small></div>
   <div id="tornado-intensity" aria-label="Control de intensidad del tornado"><label for="magnitude"><span>TORNADO</span><output id="magnitude-value">6</output></label><input id="magnitude" type="range" min="1" max="10" step="0.1" value="6" aria-label="Intensidad del tornado"></div>
   <div id="mobile-hint">Arrastra · Pellizca · Explora</div>
   <div id="dialogue"></div>
@@ -54,5 +69,6 @@
   <script src="soundscape.js"></script>
   <script src="vortex-effects.js"></script>
   <script src="pedestrian-vortex.js"></script>
+  <script src="animation-utils.js"></script>
 </body>
 </html>
