@@ -526,8 +526,7 @@
       lightbarRed,
       lightbarBlue,
       policeLight,
-      lightPhase: 0,
-      seedPhase: Math.random() * Math.PI * 2
+      lightPhase: 0
     });
   }
   // Spawn more cars along the expanded Road A (Z axis)
@@ -1308,15 +1307,16 @@
     cars.forEach(item => {
       const { car, axis, speed } = item;
       
-      // Smooth cross-fade for police emergency lights, no more hard on/off step.
+      // Animate emergency lights for police cars
       if (item.isPolice) {
-        const phase = (t * 6.4 + item.seedPhase) % (Math.PI * 2);
-        const redStrength   = .18 + .82 * Math.max(0, Math.sin(phase));
-        const blueStrength  = .18 + .82 * Math.max(0, -Math.sin(phase));
-        item.lightbarRed.material.color.setRGB(redStrength, 0, 0);
-        item.lightbarBlue.material.color.setRGB(0, 0, blueStrength);
-        item.policeLight.color.setRGB(redStrength, .08, blueStrength);
-        item.policeLight.intensity = 1.6 + Math.sin(phase) * 1.4;
+        item.lightPhase += dt;
+        if (item.lightPhase > 0.15) {
+          item.lightPhase = 0;
+          const flash = Math.floor(t * 8) % 2 === 0;
+          item.lightbarRed.material.color.setHex(flash ? 0xff0000 : 0x110000);
+          item.lightbarBlue.material.color.setHex(flash ? 0x000011 : 0x0000ff);
+          item.policeLight.color.setHex(flash ? 0xff0000 : 0x0000ff);
+        }
       }
       const distance = Math.hypot(car.position.x - tornado.position.x, car.position.z - tornado.position.z);
       if (!item.destroyed && distance < vortexRadius + 1.5) {
