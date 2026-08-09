@@ -45,6 +45,21 @@
     .button-pop:active { transform: scale(.94); }
     .fade-in-up { animation: fadeInUp .55s cubic-bezier(.2,.8,.2,1) both; }
     @keyframes fadeInUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    #tornado-control-panel.is-open { animation: slideInRight .42s cubic-bezier(.2,.8,.2,1) both; transform-origin: bottom right; }
+    @keyframes slideInRight { from { opacity: 0; transform: translateX(14px) translateY(8px) scale(.92); } to { opacity: 1; transform: translateX(0) translateY(0) scale(1); } }
+    #tornado-strength::-webkit-slider-thumb { transition: transform .2s ease, box-shadow .2s ease; }
+    #tornado-strength::-webkit-slider-thumb:hover { transform: scale(1.18); box-shadow: 0 0 0 4px rgba(242, 196, 95, .25); }
+    #tornado-strength::-moz-range-thumb { transition: transform .2s ease, box-shadow .2s ease; }
+    #tornado-strength::-moz-range-thumb:hover { transform: scale(1.18); box-shadow: 0 0 0 4px rgba(242, 196, 95, .25); }
+    #tornado-strength-value { transition: color .25s ease, text-shadow .25s ease; }
+    #tornado-strength-value.flash { color: #ff7f50; text-shadow: 0 0 12px rgba(255, 127, 80, .65); }
+    #dialogue { animation-fill-mode: both; }
+    #dialogue.visible { animation: dialoguePop .42s cubic-bezier(.2,.9,.3,1.2) both; }
+    @keyframes dialoguePop { 0% { opacity: 0; transform: translate(-50%, 14px) scale(.95); } 60% { opacity: 1; transform: translate(-50%, -2px) scale(1.03); } 100% { opacity: 1; transform: translate(-50%, 0) scale(1); } }
+    #sound-toggle { transition: transform .3s cubic-bezier(.2,.8,.2,1), background .2s ease; }
+    #sound-toggle:hover { transform: scale(1.08) rotate(-6deg); }
+    #mobile-hint { animation: mobileHint 5.2s ease-in-out infinite; }
+    @keyframes mobileHint { 0%,100% { opacity: .75; transform: translate(-50%, 0); } 50% { opacity: .35; transform: translate(-50%, 4px); } }
   </style>
 </head>
 <body>

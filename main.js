@@ -131,6 +131,7 @@
   const rubblePieces = [];
   const buildings = [];
   const trafficLights = [];
+  const buildingWindows = [];
   let copter, rotor, searchlightCone, copterSpot, copterRed, copterBlue;
   
   let newsCanvas, newsCtx, newsTexture;
@@ -359,9 +360,11 @@
     const cols = Math.max(2, Math.floor(w / 1.2));
     for (let row = 0; row < rows; row++) {
       for (let col = 0; col < cols; col++) {
-        const win = new THREE.Mesh(new THREE.PlaneGeometry(w / (cols + 1) * 0.56, 0.38), windowMaterial);
+        const winMat = windowMaterial.clone();
+        const win = new THREE.Mesh(new THREE.PlaneGeometry(w / (cols + 1) * 0.56, 0.38), winMat);
         win.position.set(-w / 2 + (col + 1) * w / (cols + 1), 0.9 + row * (h - 1.5) / rows, d / 2 + 0.006);
         building.add(win);
+        buildingWindows.push({ mat: winMat, phase: random() * Math.PI * 2, speed: .4 + random() * 1.2, base: .5 + random() * .4 });
       }
     }
     const roof = new THREE.Mesh(roofGeometry, new THREE.MeshStandardMaterial({ color: 0x555a58, roughness: 0.85 }));
@@ -765,18 +768,51 @@
   newsCtx = newsCanvas.getContext('2d');
   newsTexture = new THREE.CanvasTexture(newsCanvas);
   
+  let newsBannerPulse = 0, newsTickerOffset = 0, newsClock = 0;
   function updateNewsScreen(text) {
-    newsCtx.fillStyle = '#0a0a1a';
+    newsClock += 1;
+    // Soft vertical brightness gradient instead of a flat rectangle.
+    const bgGrad = newsCtx.createLinearGradient(0, 0, 0, 128);
+    bgGrad.addColorStop(0, '#1a0b2c');
+    bgGrad.addColorStop(1, '#06060f');
+    newsCtx.fillStyle = bgGrad;
     newsCtx.fillRect(0, 0, 256, 128);
-    newsCtx.fillStyle = '#ff0033';
+    // Banner pulses with a sine envelope instead of a jumpscare flash.
+    newsBannerPulse = .6 + .4 * Math.sin(newsClock * .15);
+    newsCtx.fillStyle = `rgba(255, 0, 51, ${newsBannerPulse.toFixed(3)})`;
     newsCtx.fillRect(0, 0, 256, 32);
+    // Scrolling tick-tick marquee behind the headline.
+    const tickerPhrase = '   · ALERTA METEOROLÓGICA · BUSQUE REFUGIO · NO USE ASCENSORES · EVITE VIDRIOS · KEEP CALM · STAY INSIDE';
+    newsTickerOffset = (newsTickerOffset + .55) % 256;
+    newsCtx.fillStyle = '#1a0b2c';
+    newsCtx.fillRect(0, 102, 256, 26);
+    newsCtx.fillStyle = '#7ee0ff';
+    newsCtx.font = 'bold 10px Courier New';
+    newsCtx.textAlign = 'left';
+    newsCtx.save();
+    newsCtx.beginPath();
+    newsCtx.rect(0, 102, 256, 26);
+    newsCtx.clip();
+    newsCtx.fillText(tickerPhrase.repeat(2), -newsTickerOffset, 118);
+    newsCtx.fillText(tickerPhrase.repeat(2), -newsTickerOffset + 256, 118);
+    newsCtx.restore();
     newsCtx.fillStyle = '#ffffff';
     newsCtx.font = 'bold 15px Arial';
     newsCtx.textAlign = 'center';
     newsCtx.fillText('NEWS 24 LIVE', 128, 22);
-    newsCtx.fillStyle = '#ffff00';
+    // Headline color cycles by event severity.
+    const headlineColor = text.includes('TORNADO') ? '#ff3344' : text.includes('TSUNAMI') ? '#3aa6ff' : text.includes('QUAKE') ? '#ffd84d' : '#ffff00';
+    newsCtx.fillStyle = headlineColor;
     newsCtx.font = 'bold 18px Courier New';
-    newsCtx.fillText(text, 128, 80);
+    newsCtx.fillText(text, 128, 78);
+    // Live clock in the top-right corner — gives the screen a sense of motion.
+    newsCtx.fillStyle = '#b9c8cf';
+    newsCtx.font = '9px Courier New';
+    newsCtx.textAlign = 'right';
+    const pad = (n) => String(n).padStart(2, '0');
+    const h = pad(Math.floor(newsClock / 60) % 24);
+    const m = pad(newsClock % 60);
+    newsCtx.fillText(`${h}:${m} ON AIR`, 250, 12);
     newsTexture.needsUpdate = true;
   }
   updateNewsScreen('SYSTEM OK');
@@ -1460,9 +1496,15 @@
     copter.rotation.y = copterAngle + Math.PI / 2;
     copter.rotation.x = 0.08;
     rotor.rotation.y += dt * 25;
-    const copterFlash = Math.floor(t * 8) % 2 === 0;
-    copterRed.material.color.setHex(copterFlash ? 0xff0000 : 0x220000);
-    copterBlue.material.color.setHex(copterFlash ? 0x000022 : 0x0000ff);
+    // Sinusoidal crossfade for the heli running lights (no more hard on/off step).
+    const copterPhase = (t * 6.0) % (Math.PI * 2);
+    const copterRedStrength = .22 + .78 * Math.max(0, Math.sin(copterPhase));
+    const copterBlueStrength = .22 + .78 * Math.max(0, -Math.sin(copterPhase));
+    copterRed.material.color.setRGB(copterRedStrength, 0, 0);
+    copterBlue.material.color.setRGB(0, 0, copterBlueStrength);
+    // Searchlight oscillates its intensity like a slow strobe without snapping dark.
+    copterSpot.intensity = 3.6 + Math.sin(t * 4.2) * 1.4;
+    searchlightCone.material.opacity = .14 + .07 * Math.abs(Math.sin(t * 2.4));
     copterSpot.target.position.set(
       copter.position.x + Math.sin(t * 1.5) * 8,
       0,
@@ -1471,35 +1513,35 @@
     searchlightCone.lookAt(copterSpot.target.position);
     searchlightCone.rotation.x += Math.PI / 2;
 
-    // Animate traffic lights cycle
+    // Traffic lights: smooth sinusoidal crossfade between verd/ámbar/rojo, no jumps.
     trafficLights.forEach(light => {
       light.timer += dt;
-      const cycle = light.timer % 9;
-      if (cycle < 4) {
-        light.tLight.color.setHex(0x00ffaa);
-        light.tLight.intensity = 1.5;
-        light.tBulbGreen.material.color.setHex(0x00ffaa);
-        light.tBulbRed.material.color.setHex(0x220000);
-        light.tBulbGold.material.color.setHex(0x221100);
-      } else if (cycle < 5) {
-        light.tLight.color.setHex(0xffb84d);
-        light.tLight.intensity = 1.8;
-        light.tBulbGreen.material.color.setHex(0x001100);
-        light.tBulbRed.material.color.setHex(0x220000);
-        light.tBulbGold.material.color.setHex(0xffb84d);
-      } else {
-        light.tLight.color.setHex(0xff3300);
-        light.tLight.intensity = 1.5;
-        light.tBulbGreen.material.color.setHex(0x001100);
-        light.tBulbRed.material.color.setHex(0xff3300);
-        light.tBulbGold.material.color.setHex(0x221100);
-      }
+      const phase = (light.timer / 9) % 1;
+      // Triangular overlap windows keep two colors partially lit during transitions.
+      const onRed   = phase < .28 ? Math.min(1, (.28 - phase) / .06) : 0;
+      const onAmber = phase > .34 && phase < .42 ? Math.min(1, (phase - .34) / .04) - Math.max(0, (phase - .40) / .02) : 0;
+      const onGreen = phase > .42 && phase < .92 ? 1 : phase > .92 ? Math.min(1, (.06 - (1 - phase)) / .06) : 0;
+      const r = onRed   * 1.0;
+      const g = onGreen * .66;
+      const a = onAmber * 1.0;
+      light.tLight.color.setRGB(r, g, a);
+      light.tLight.intensity = 1.4 + onRed * .4 + onAmber * .8;
+      light.tBulbRed.material.color.setRGB(r, r * .15, r * .15);
+      light.tBulbGold.material.color.setRGB(a, a * .72, a * .18);
+      light.tBulbGreen.material.color.setRGB(g * .15, g, g * .52);
     });
 
     cityLights.forEach(light => {
       const pulse = .78 + Math.sin(t * 2.4 + light.phase) * .22;
       light.bulb.scale.setScalar(.88 + pulse * .2);
     });
+    // Per-window flicker with random phase, gives the skyline that living-room rhythm.
+    for (let i = 0; i < buildingWindows.length; i++) {
+      const w = buildingWindows[i];
+      const s = .5 + Math.sin(t * w.speed + w.phase) * .5;
+      const flicker = s > .88 ? Math.max(0, 1 - (s - .88) * 8) : 1; // tiny stutter on rare peaks
+      w.mat.opacity = (.35 + s * .55) * flicker;
+    }
 
     // Update Times Square News Warning Screen
     let currentWarning = 'WEATHER: CLEAR';
