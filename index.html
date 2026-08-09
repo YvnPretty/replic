@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ciudad bajo el tornado</title>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #9eabb0; }
+    canvas { display: block; }
+    #info { position: fixed; z-index: 1; top: 18px; left: 50%; transform: translateX(-50%); color: #fff; font: 600 14px/1.4 system-ui, sans-serif; text-align: center; letter-spacing: .04em; text-shadow: 0 2px 5px #202527; pointer-events: none; }
+    #info small { font-weight: 400; opacity: .88; letter-spacing: normal; }
+    #disaster-controls { position: fixed; z-index: 2; right: 18px; bottom: 18px; width: 220px; padding: 13px 15px; border: 1px solid rgba(230,242,245,.38); border-radius: 10px; background: rgba(14,23,27,.72); color: #f4f7f5; font: 13px/1.4 system-ui, sans-serif; box-shadow: 0 8px 30px rgba(0,0,0,.25); backdrop-filter: blur(8px); }
+    #disaster-controls label { display: flex; justify-content: space-between; font-weight: 650; }
+    #disaster-controls input { width: 100%; margin: 8px 0 7px; accent-color: #e0ad51; }
+    #event-status { color: #cdd9d7; font-size: 12px; }
+    #dialogue { position: fixed; z-index: 3; left: 22px; bottom: 22px; max-width: 330px; padding: 12px 16px; border-left: 3px solid #f2c45f; border-radius: 5px; color: #fff; background: rgba(12,18,20,.78); font: 600 15px/1.35 system-ui, sans-serif; opacity: 0; transform: translateY(8px); transition: opacity .25s, transform .25s; pointer-events: none; }
+    #dialogue.visible { opacity: 1; transform: translateY(0); }
+    #sound-toggle { width: 100%; margin: 10px 0 0; padding: 7px 9px; border: 1px solid rgba(240,247,245,.45); border-radius: 6px; color: #f8fbfa; background: rgba(71,105,111,.6); font: inherit; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div id="info">TORNADO Y CRECIDA URBANA<br><small>Arrastra para orbitar · Rueda para acercar · <b>Clic derecho/Dos dedos para moverte al aeropuerto</b></small></div>
+  <div id="dialogue"></div>
+  <div id="disaster-controls">
+    <label for="magnitude">Intensidad del desastre <output id="magnitude-value">6</output></label>
+    <input id="magnitude" type="range" min="1" max="10" step="0.1" value="6">
+    <div id="event-status">Toca el mapa para crear un terremoto</div>
+    <button id="tsunami-trigger" type="button">🌊 Generar tsunami</button>
+    <button id="sound-toggle" type="button">🔇 Activar sonido</button>
+  </div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://unpkg.com/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <script src="main.js"></script>
+</body>
+</html>
