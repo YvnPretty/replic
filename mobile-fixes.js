@@ -1,32 +1,35 @@
 /* Mobile polish + tornado behaviour fixes. Loaded before main.js. */
 (() => {
-  // Keep the tornado in open water longer. The simulation itself uses this
-  // Vector3, so the collision radius moves with the visible funnel too.
+  // The original simulation starts the funnel at x=-36. Capture that exact
+  // Vector3, then drive it farther into the sea before each simulation frame.
   const originalSet = THREE.Vector3.prototype.set;
   let tornadoPosition = null;
-  let patched = false;
+  let tornadoCaptured = false;
 
   THREE.Vector3.prototype.set = function (x, y, z) {
-    if (!patched && Math.abs(x + 36) < 0.001 && Math.abs(y) < 0.001 && Math.abs(z - 8) < 0.001) {
+    if (!tornadoCaptured && Math.abs(x + 36) < 0.001 && Math.abs(y) < 0.001 && Math.abs(z - 8) < 0.001) {
+      tornadoCaptured = true;
       tornadoPosition = this;
-      originalSet.call(this, -70, y, z);
-      let actualX = -70;
-      Object.defineProperty(this, 'x', {
-        configurable: true,
-        enumerable: true,
-        get() { return actualX; },
-        set(value) {
-          // Main simulation path is -36..23. Remap it to -70..23 so the
-          // funnel spends real time over open water before reaching town.
-          const mapped = -70 + ((value + 36) / 59) * 93;
-          actualX = Math.max(-70, Math.min(23, mapped));
-        }
-      });
-      patched = true;
-      return this;
+      return originalSet.call(this, -70, y, z);
     }
     return originalSet.call(this, x, y, z);
   };
+
+  // Reset the tornado position immediately before main.js updates damage,
+  // so the collision logic uses the same open-water path that the player sees.
+  const originalRAF = window.requestAnimationFrame.bind(window);
+  const journeyStart = performance.now();
+  window.requestAnimationFrame = callback => originalRAF(timestamp => {
+    if (tornadoPosition) {
+      const elapsed = (timestamp - journeyStart) / 1000;
+      const cycle = 78;
+      const journey = Math.min(1, (elapsed % cycle) / cycle);
+      const desiredX = -70 + journey * 93;
+      const desiredZ = 8 + Math.sin(journey * Math.PI * 2.2) * 6;
+      originalSet.call(tornadoPosition, desiredX, 0, desiredZ);
+    }
+    callback(timestamp);
+  });
 
   document.addEventListener('DOMContentLoaded', () => {
     const originalPanel = document.getElementById('tornado-intensity');
@@ -34,16 +37,15 @@
     const value = document.getElementById('magnitude-value');
     if (!originalPanel || !slider) return;
 
-    // Replace the always-visible control with a small, easy-to-find toggle.
     originalPanel.style.display = 'none';
     originalPanel.id = 'tornado-control-panel';
 
     const toggle = document.createElement('button');
     toggle.id = 'tornado-control-toggle';
     toggle.type = 'button';
-    toggle.setAttribute('aria-label', 'Mostrar controles del tornado');
+    toggle.setAttribute('aria-label', 'Mostrar controles');
     toggle.setAttribute('aria-expanded', 'false');
-    toggle.textContent = '☰';
+    toggle.textContent = '⚙';
 
     const panel = originalPanel;
     panel.innerHTML = `
@@ -52,62 +54,43 @@
         <output id="tornado-strength-value">6</output>
       </div>
       <input id="tornado-strength" type="range" min="1" max="10" step="0.1" value="6" aria-label="Intensidad del tornado">
-      <div class="tornado-control-caption">Intensidad visual · no afecta edificios a distancia</div>
+      <div class="tornado-control-caption">Intensidad visual</div>
     `;
 
     const strength = panel.querySelector('#tornado-strength');
     const strengthValue = panel.querySelector('#tornado-strength-value');
+    document.body.append(toggle, panel);
 
-    document.body.appendChild(toggle);
-    document.body.appendChild(panel);
-
-    const closePanel = () => {
-      panel.classList.remove('is-open');
-      toggle.setAttribute('aria-expanded', 'false');
-      toggle.textContent = '☰';
-    };
     toggle.addEventListener('click', () => {
       const open = panel.classList.toggle('is-open');
       toggle.setAttribute('aria-expanded', String(open));
-      toggle.textContent = open ? '×' : '☰';
+      toggle.textContent = open ? '×' : '⚙';
     });
 
     strength.addEventListener('input', () => {
       strengthValue.textContent = strength.value;
-      // Keep the original earthquake/tsunami magnitude independent.
+      window.__tornadoStrength = Number(strength.value);
+      // Do not let the tornado slider change earthquake/tsunami magnitude.
       slider.value = '6';
       value.textContent = '6';
-      window.__tornadoStrength = Number(strength.value);
     });
     window.__tornadoStrength = 6;
 
-    // Capture the Three.js scene through the renderer without changing the
-    // existing simulation architecture.
     const originalRender = THREE.WebGLRenderer.prototype.render;
-    let captured = null;
+    let capturedGroup = null;
     THREE.WebGLRenderer.prototype.render = function (scene, camera) {
-      if (!captured) {
+      if (!capturedGroup) {
         scene.traverse(obj => {
-          if (!captured && obj.type === 'Group' && obj.children.some(child => {
-            const count = child.geometry?.attributes?.position?.count;
-            return count === 9500;
-          })) captured = obj;
+          if (!capturedGroup && obj.type === 'Group' && obj.children.some(child => child.geometry?.attributes?.position?.count === 9500)) {
+            capturedGroup = obj;
+          }
         });
       }
-
-      if (captured) {
-        const s = 0.78 + ((window.__tornadoStrength || 6) - 1) / 9 * 0.34;
-        captured.scale.setScalar(s);
-        captured.userData.mobileTornado = true;
+      if (capturedGroup) {
+        const strengthScale = 0.82 + ((window.__tornadoStrength || 6) - 1) / 9 * 0.26;
+        capturedGroup.scale.setScalar(strengthScale);
       }
       return originalRender.call(this, scene, camera);
     };
-
-    // Subtle mobile quality tuning.
-    const isSmall = Math.min(innerWidth, innerHeight) <= 768;
-    if (isSmall) {
-      const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.content = '#12051f';
-    }
   });
 })();
